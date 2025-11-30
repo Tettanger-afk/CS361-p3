@@ -9,7 +9,6 @@ public class TMSimulator {
         // output: big number, if larger than 2^31-1 then output "large number"
         // output length: output length as an integer
         // sum of symbols: sum of symbols on the tape as an integer
-        
-    } // end of main method
+    }
     
 } // end of TMSimulator class

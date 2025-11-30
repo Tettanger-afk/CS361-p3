@@ -2,59 +2,64 @@ package tm;
 // This should be the Turing Machine State class.
 public class TMState implements TMStateInterface {
 
-    @Override
-    public int getId() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getId'");
+    private int id;
+    private boolean halting = false;
+
+    // transitions keyed by read symbol
+    private java.util.Map<Integer, Transition> transitions = new java.util.HashMap<>();
+
+    private static class Transition {
+        int nextStateId;
+        int writeSymbol;
+        char direction; // 'L','R','N'
+
+        Transition(int nextStateId, int writeSymbol, char direction) {
+            this.nextStateId = nextStateId;
+            this.writeSymbol = writeSymbol;
+            this.direction = direction;
+        }
     }
 
-    @Override
-    public void setId(int id) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'setId'");
-    }
+    public TMState() {}
+
+    public TMState(int id) { this.id = id; }
 
     @Override
-    public boolean isHalting() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'isHalting'");
-    }
+    public int getId() { return id; }
 
     @Override
-    public void setHalting(boolean halting) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'setHalting'");
-    }
+    public void setId(int id) { this.id = id; }
+
+    @Override
+    public boolean isHalting() { return halting; }
+
+    @Override
+    public void setHalting(boolean halting) { this.halting = halting; }
 
     @Override
     public void addTransition(int readSymbol, int nextStateId, int writeSymbol, char direction) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'addTransition'");
+        transitions.put(readSymbol, new Transition(nextStateId, writeSymbol, direction));
     }
 
     @Override
-    public boolean hasTransition(int readSymbol) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'hasTransition'");
-    }
+    public boolean hasTransition(int readSymbol) { return transitions.containsKey(readSymbol); }
 
     @Override
     public int getNextState(int readSymbol) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getNextState'");
+        Transition t = transitions.get(readSymbol);
+        return t == null ? -1 : t.nextStateId;
     }
 
     @Override
     public int getWriteSymbol(int readSymbol) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getWriteSymbol'");
+        Transition t = transitions.get(readSymbol);
+        return t == null ? -1 : t.writeSymbol;
     }
 
     @Override
     public char getDirection(int readSymbol) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getDirection'");
+        Transition t = transitions.get(readSymbol);
+        return t == null ? 'N' : t.direction;
     }
 
-    
-} // end of TMState class
+}
