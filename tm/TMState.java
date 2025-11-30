@@ -1,3 +1,4 @@
+package tm;
 // This should be the Turing Machine State class.
 public class TMState implements TMStateInterface {
 

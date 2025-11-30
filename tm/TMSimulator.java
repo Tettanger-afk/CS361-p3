@@ -1,3 +1,4 @@
+package tm;
 // This is the driver class for the Turing Machine Simulator application.
 public class TMSimulator {
 

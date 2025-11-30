@@ -1,3 +1,4 @@
+package tm;
 // This should be the Turing Machine class.
 /**
  * Concrete Turing Machine class (keeps abstract until methods are implemented).

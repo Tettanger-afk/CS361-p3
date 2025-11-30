@@ -1,3 +1,4 @@
+package tm;
 /**
  * TMStateInterface models a single state of a Turing Machine. Implementations
  * should store transitions that map a read symbol to (nextStateId, writeSymbol,

@@ -2,6 +2,9 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.Test;
 
+import tm.TMInterface;
+import tm.TMStateInterface;
+
 import java.util.HashMap;
 import java.util.Map;
 

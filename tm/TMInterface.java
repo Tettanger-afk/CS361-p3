@@ -1,3 +1,4 @@
+package tm;
 /**
  * TMInterface describes the operations a Turing Machine implementation
  * must provide for the simulator and state objects. Methods are kept
