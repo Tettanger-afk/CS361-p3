@@ -45,22 +45,22 @@ Clean previous outputs before running (scripts call `CleanUp.sh` automatically).
 
 ## Running JUnit tests
 
-Two options are provided to run the `TMTest` unit tests:
-
-- With Maven (recommended if you have Maven installed):
+The simplest way to run the `TMTest` unit tests is with Maven:
 
 ```bash
 mvn test
 ```
 
-- Without Maven: download the JUnit standalone console and run it (helper provided):
+If you don't have Maven, you can download the JUnit Platform Console standalone
+JAR directly from Maven Central and run it manually. Example (uses `curl`):
 
 ```bash
-./get-junit.sh
-java -jar lib/junit-platform-console-standalone-1.9.3.jar --class-path . --scan-classpath
+curl -L -o junit-platform-console-standalone-1.9.3.jar \
+   https://repo1.maven.org/maven2/org/junit/platform/junit-platform-console-standalone/1.9.3/junit-platform-console-standalone-1.9.3.jar
+java -jar junit-platform-console-standalone-1.9.3.jar --class-path . --scan-classpath
 ```
 
-See `RUNNING_TESTS.md` for more detail.
+Alternatively import the project into your IDE and run `TMTest` from there.
 
 ## Input file format
 
@@ -76,22 +76,6 @@ See `RUNNING_TESTS.md` for more detail.
 - `run-test0.sh`, `run-test2.sh`, `run-test5.sh` — run individual example tests.
 - `run-all-tests.sh` — runs all three example tests and reports summary.
 - `CleanUp.sh` — clears the `output/` directory (scripts call this automatically).
-- `get-junit.sh` — downloads the JUnit console jar into `lib/` for running tests
-  without Maven.
-
-## Performance notes (discussion)
-
-The current implementation uses a sparse `Map`-backed tape and per-state maps
-for transitions. For faster execution consider:
-
-- building a packed transition table (`int[]`) for O(1) state/symbol lookup;
-- replacing the tape `Map` with an array-backed tape (or ring buffer) for
-  lower-latency tape accesses when tape use is dense;
-- using primitive collections or tuning initial capacities to reduce GC/boxing.
-
-If you want, I can implement the packed transition table and incremental
-metadata (sum/min/max) as a low-risk, high-impact speedup.
-
 
 # Sources Used
 
