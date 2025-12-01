@@ -13,20 +13,88 @@ public class TM implements TMInterface {
 
     private final Map<Integer, TMStateInterface> states = new HashMap<>();
     private int blankSymbol = 0;
-    private Map<Integer, Integer> tape = new HashMap<>(); // sparse tape
+    // array-backed tape: logical index i maps to tapeArray[tapeOrigin + i]
+    private int[] tapeArray = null;
+    private int tapeOrigin = 0; // offset in array corresponding to logical index 0
     private int head = 0;
     private int currentState = 0;
     private boolean halted = false;
+    // Optional packed transition table for fast lookup: indexed by (state * symbolsPerState + symbol)
+    private int[] transitionTable = null;
+    private int symbolsPerState = 0;
+    private boolean[] haltingStates = null;
+    private boolean useTransitionTable = false;
+    // track visited tape indices (inclusive)
+    private int minVisited = Integer.MAX_VALUE;
+    private int maxVisited = Integer.MIN_VALUE;
 
     public TM() {}
 
+    private void ensureTapeCapacityForIndex(int arrayIndex) {
+        if (tapeArray == null) {
+            int cap = Math.max(64, 16);
+            tapeArray = new int[cap];
+            for (int i = 0; i < cap; i++) tapeArray[i] = blankSymbol;
+            tapeOrigin = cap / 4;
+        }
+        if (arrayIndex >= 0 && arrayIndex < tapeArray.length) return;
+        int need = Math.max(arrayIndex + 1, tapeArray.length * 2);
+        int newCap = Math.max(need, tapeArray.length * 2);
+        int[] na = new int[newCap];
+        for (int i = 0; i < newCap; i++) na[i] = blankSymbol;
+        int oldLen = tapeArray.length;
+        int newOrigin = (newCap - oldLen) / 2;
+        System.arraycopy(tapeArray, 0, na, newOrigin, oldLen);
+        tapeOrigin = newOrigin + tapeOrigin;
+        tapeArray = na;
+    }
+
+    /**
+     * Build a packed transition table for fast runtime lookups.
+     * nStates is the total number of states, symbolsPerState is |Γ| (including blank 0).
+     */
+    public void buildTransitionTable(int nStates, int symbolsPerState) {
+        this.symbolsPerState = symbolsPerState;
+        int len = nStates * symbolsPerState;
+        transitionTable = new int[len];
+        java.util.Arrays.fill(transitionTable, -1);
+        haltingStates = new boolean[nStates];
+        for (int s = 0; s < nStates; s++) {
+            TMStateInterface st = states.get(s);
+            if (st == null) continue;
+            haltingStates[s] = st.isHalting();
+            for (int sym = 0; sym < symbolsPerState; sym++) {
+                if (!st.hasTransition(sym)) continue;
+                int next = st.getNextState(sym);
+                int write = st.getWriteSymbol(sym);
+                char dir = st.getDirection(sym);
+                int dirBit = (dir == 'R') ? 1 : 0;
+                int packed = (next << 8) | (write << 1) | dirBit;
+                int idx = s * symbolsPerState + sym;
+                if (idx >= 0 && idx < len) transitionTable[idx] = packed;
+            }
+        }
+        useTransitionTable = true;
+    }
+
     @Override
     public void initializeTape(int[] input) {
-        tape.clear();
+        int cap = Math.max(64, (input == null ? 0 : input.length) * 4 + 16);
+        tapeArray = new int[cap];
+        for (int i = 0; i < cap; i++) tapeArray[i] = blankSymbol;
+        tapeOrigin = cap / 4;
         if (input != null) {
-            for (int i = 0; i < input.length; i++) {
-                tape.put(i, input[i]);
+            for (int i = 0; i < input.length; i++) tapeArray[tapeOrigin + i] = input[i];
+            if (input.length > 0) {
+                minVisited = 0;
+                maxVisited = input.length - 1;
+            } else {
+                minVisited = Integer.MAX_VALUE;
+                maxVisited = Integer.MIN_VALUE;
             }
+        } else {
+            minVisited = Integer.MAX_VALUE;
+            maxVisited = Integer.MIN_VALUE;
         }
         head = 0;
         halted = false;
@@ -34,16 +102,22 @@ public class TM implements TMInterface {
 
     @Override
     public int readTape() {
-        return tape.getOrDefault(head, blankSymbol);
+        updateVisited();
+        if (tapeArray == null) return blankSymbol;
+        int ai = tapeOrigin + head;
+        if (ai < 0 || ai >= tapeArray.length) return blankSymbol;
+        return tapeArray[ai];
     }
 
     @Override
     public void writeTape(int symbol) {
-        if (symbol == blankSymbol) {
-            tape.remove(head);
-        } else {
-            tape.put(head, symbol);
-        }
+        updateVisited();
+        int ai = tapeOrigin + head;
+        ensureTapeCapacityForIndex(ai);
+        // tapeOrigin may have changed during ensure; recompute array index
+        ai = tapeOrigin + head;
+        ensureTapeCapacityForIndex(ai);
+        tapeArray[ai] = symbol;
     }
 
     @Override
@@ -61,6 +135,27 @@ public class TM implements TMInterface {
     @Override
     public void step() {
         if (halted) return;
+        if (useTransitionTable && transitionTable != null) {
+            if (haltingStates != null && currentState >= 0 && currentState < haltingStates.length && haltingStates[currentState]) { halted = true; return; }
+            int read = readTape();
+            int idx = currentState * symbolsPerState + read;
+            if (idx < 0 || idx >= transitionTable.length) { halted = true; return; }
+            int packed = transitionTable[idx];
+            if (packed == -1) { halted = true; return; }
+            int next = packed >>> 8;
+            int write = (packed >>> 1) & 0x7F;
+            int dirBit = packed & 1;
+
+            writeTape(write);
+            currentState = next;
+            if (dirBit == 0) head--; else head++;
+
+            updateVisited();
+
+            if (currentState >= 0 && haltingStates != null && currentState < haltingStates.length && haltingStates[currentState]) halted = true;
+            return;
+        }
+
         TMStateInterface state = states.get(currentState);
         if (state == null) { halted = true; return; }
         if (state.isHalting()) { halted = true; return; }
@@ -77,25 +172,52 @@ public class TM implements TMInterface {
         if (dir == 'L') head--;
         else if (dir == 'R') head++;
 
+        updateVisited();
+
         TMStateInterface newState = states.get(currentState);
         if (newState != null && newState.isHalting()) halted = true;
     }
 
     @Override
-    public void run(long maxSteps) {
-        if (maxSteps <= 0) {
-            while (!halted) step();
-        } else {
-            long cnt = 0;
-            while (!halted && cnt < maxSteps) { step(); cnt++; }
-        }
+    public void run() {
+        while (!halted) step();
     }
 
     @Override
     public boolean isHalted() { return halted; }
 
     @Override
-    public void reset() { tape.clear(); head = 0; currentState = 0; halted = false; }
+    public void reset() { tapeArray = null; head = 0; currentState = 0; halted = false; }
+    
+    // ensure reset also clears visited range
+    public void fullReset() { reset(); minVisited = Integer.MAX_VALUE; maxVisited = Integer.MIN_VALUE; }
+
+    private void updateVisited() {
+        if (head < minVisited) minVisited = head;
+        if (head > maxVisited) maxVisited = head;
+    }
+
+    /** Return visited tape content from leftmost visited to rightmost visited as a string. */
+    public String getVisitedContentString() {
+        if (minVisited == Integer.MAX_VALUE) return "";
+        StringBuilder sb = new StringBuilder();
+        for (int i = minVisited; i <= maxVisited; i++) {
+            int s;
+            if (tapeArray == null) s = blankSymbol;
+            else {
+                int ai = tapeOrigin + i;
+                if (ai < 0 || ai >= tapeArray.length) s = blankSymbol; else s = tapeArray[ai];
+            }
+            sb.append(Integer.toString(Math.max(0, s)));
+        }
+        return sb.toString();
+    }
+
+    /** Return number of visited tape squares (inclusive). */
+    public int getVisitedLength() {
+        if (minVisited == Integer.MAX_VALUE) return 0;
+        return maxVisited - minVisited + 1;
+    }
 
     @Override
     public void setBlankSymbol(int blankSymbol) { this.blankSymbol = blankSymbol; }
@@ -119,15 +241,18 @@ public class TM implements TMInterface {
 
     /** Compute output as BigInteger by concatenating non-blank cells from leftmost to rightmost. */
     public BigInteger getOutputAsBigInteger() {
-        if (tape.isEmpty()) return BigInteger.ZERO;
-        int min = Integer.MAX_VALUE, max = Integer.MIN_VALUE;
-        for (int k : tape.keySet()) {
-            min = Math.min(min, k);
-            max = Math.max(max, k);
+        if (tapeArray == null) return BigInteger.ZERO;
+        int minIdx = Integer.MAX_VALUE, maxIdx = Integer.MIN_VALUE;
+        for (int ai = 0; ai < tapeArray.length; ai++) {
+            if (tapeArray[ai] != blankSymbol) {
+                minIdx = Math.min(minIdx, ai);
+                maxIdx = Math.max(maxIdx, ai);
+            }
         }
+        if (minIdx == Integer.MAX_VALUE) return BigInteger.ZERO;
         java.lang.StringBuilder sb = new java.lang.StringBuilder();
-        for (int i = min; i <= max; i++) {
-            int s = tape.getOrDefault(i, blankSymbol);
+        for (int ai = minIdx; ai <= maxIdx; ai++) {
+            int s = tapeArray[ai];
             sb.append(Integer.toString(Math.max(0, s)));
         }
         try {
@@ -139,28 +264,65 @@ public class TM implements TMInterface {
 
     @Override
     public int getOutputLength() {
-        if (tape.isEmpty()) return 0;
-        int min = Integer.MAX_VALUE, max = Integer.MIN_VALUE;
-        for (int k : tape.keySet()) {
-            min = Math.min(min, k);
-            max = Math.max(max, k);
+        if (tapeArray == null) return 0;
+        int minIdx = Integer.MAX_VALUE, maxIdx = Integer.MIN_VALUE;
+        for (int ai = 0; ai < tapeArray.length; ai++) {
+            if (tapeArray[ai] != blankSymbol) {
+                minIdx = Math.min(minIdx, ai);
+                maxIdx = Math.max(maxIdx, ai);
+            }
         }
-        return max - min + 1;
+        if (minIdx == Integer.MAX_VALUE) return 0;
+        return maxIdx - minIdx + 1;
     }
 
     @Override
     public long getSumOfSymbols() {
+        if (tapeArray == null) return 0L;
         long sum = 0;
-        for (int v : tape.values()) sum += v;
+        for (int v : tapeArray) if (v != blankSymbol) sum += v;
         return sum;
     }
 
     // helper: set tape from number of 1s (unary input)
     public void initializeUnaryInput(int ones) {
-        tape.clear();
-        for (int i = 0; i < ones; i++) tape.put(i, 1);
+        int cap = Math.max(64, ones * 4 + 16);
+        tapeArray = new int[cap];
+        for (int i = 0; i < cap; i++) tapeArray[i] = blankSymbol;
+        tapeOrigin = cap / 4;
+        for (int i = 0; i < ones; i++) tapeArray[tapeOrigin + i] = 1;
         head = 0;
         halted = false;
+        if (ones <= 0) {
+            minVisited = Integer.MAX_VALUE;
+            maxVisited = Integer.MIN_VALUE;
+        } else {
+            minVisited = 0;
+            maxVisited = ones - 1;
+        }
+    }
+
+    /**
+     * Create a fresh TM instance that contains the same state/transition
+     * definitions (a template copy) but with an empty tape and reset head.
+     */
+    public TM cloneTemplate() {
+        TM copy = new TM();
+        copy.blankSymbol = this.blankSymbol;
+        for (TMStateInterface s : this.states.values()) {
+            if (s instanceof TMState) {
+                TMState src = (TMState) s;
+                TMState dst = new TMState(src.getId());
+                dst.setHalting(src.isHalting());
+                src.copyTo(dst);
+                copy.addState(dst);
+            } else {
+                TMState dst = new TMState(s.getId());
+                dst.setHalting(s.isHalting());
+                copy.addState(dst);
+            }
+        }
+        return copy;
     }
 
 }

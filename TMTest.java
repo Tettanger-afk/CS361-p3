@@ -75,7 +75,7 @@ public class TMTest {
         private boolean halted = false;
         private int blank = 0;
         private final Map<Integer, TMStateInterface> states = new HashMap<>();
-        private long steps = 0;
+        
 
         @Override
         public void initializeTape(int[] input) {
@@ -114,16 +114,17 @@ public class TMTest {
         public void setCurrentState(int stateId) { currentState = stateId; }
 
         @Override
-        public void step() { steps++; halted = true; }
+        public void step() { halted = true; }
 
         @Override
-        public void run(long maxSteps) { if (maxSteps <= 0) { step(); } else { for (long i=0;i<maxSteps;i++) step(); } }
+        public void run() { while (!halted) step(); }
+
 
         @Override
         public boolean isHalted() { return halted; }
 
         @Override
-        public void reset() { head = 0; currentState = 0; halted = false; steps = 0; }
+        public void reset() { head = 0; currentState = 0; halted = false; }
 
         @Override
         public void setBlankSymbol(int blankSymbol) { blank = blankSymbol; }
@@ -197,5 +198,80 @@ public class TMTest {
         assertFalse(tm.isHalted());
         tm.step();
         assertTrue(tm.isHalted());
+    }
+
+    @Test
+    public void tmStateCopyAndCloneTemplateIsolation() {
+        // build a TMState with multiple transitions
+        tm.TMState s1 = new tm.TMState(0);
+        s1.addTransition(0, 1, 5, 'R');
+        s1.addTransition(1, 2, 6, 'L');
+
+        tm.TMState s2 = new tm.TMState(0);
+        s1.copyTo(s2);
+        assertTrue(s2.hasTransition(0));
+        assertEquals(1, s2.getNextState(0));
+        assertEquals(5, s2.getWriteSymbol(0));
+        assertEquals('R', s2.getDirection(0));
+
+        // build a TM template and clone it, modify clone and ensure template unchanged
+        tm.TM template = new tm.TM();
+        template.addState(s1);
+        tm.TMState sTemplate1 = new tm.TMState(1);
+        sTemplate1.setHalting(true);
+        template.addState(sTemplate1);
+
+        tm.TM copy = template.cloneTemplate();
+        // modify a transition in the clone
+        tm.TMState clonedState = (tm.TMState) copy.getState(0);
+        clonedState.addTransition(0, 9, 7, 'N');
+
+        // original template should still have original nextState for read 0
+        assertEquals(1, template.getState(0).getNextState(0));
+        // clone should now have the modified next state
+        assertEquals(9, copy.getState(0).getNextState(0));
+    }
+
+    @Test
+    public void tmVisitedContentAndWriteBlankBehavior() {
+        tm.TM tm = new tm.TM();
+        tm.initializeUnaryInput(3); // tape: 1,1,1
+        assertEquals("111", tm.getVisitedContentString());
+        assertEquals(3, tm.getVisitedLength());
+        assertEquals(3, tm.getSumOfSymbols());
+
+        tm.setHeadPosition(1);
+        tm.writeTape(0); // write blank (default blank is 0) -> removes cell
+        assertEquals("101", tm.getVisitedContentString());
+        assertEquals(3, tm.getVisitedLength());
+        assertEquals(2, tm.getSumOfSymbols());
+    }
+
+    @Test
+    public void tmHaltsWhenNoTransition() {
+        tm.TM tm = new tm.TM();
+        tm.TMState s0 = new tm.TMState(0);
+        // no transitions added for blank=0
+        tm.addState(s0);
+        tm.TMState s1 = new tm.TMState(1);
+        s1.setHalting(true);
+        tm.addState(s1);
+
+        tm.initializeUnaryInput(0); // empty tape, head reads blank 0
+        tm.setCurrentState(0);
+        tm.run();
+        assertTrue(tm.isHalted());
+    }
+
+    @Test
+    public void getOutputAsNumberOverflowReturnsMaxLong() {
+        tm.TM tm = new tm.TM();
+        // create a tape with 25 digits of 9 -> larger than Long.MAX_VALUE
+        int n = 25;
+        int[] digits = new int[n];
+        for (int i = 0; i < n; i++) digits[i] = 9;
+        tm.initializeTape(digits);
+        long v = tm.getOutputAsNumber();
+        assertEquals(Long.MAX_VALUE, v);
     }
 }

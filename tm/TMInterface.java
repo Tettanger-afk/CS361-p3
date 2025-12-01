@@ -34,10 +34,11 @@ public interface TMInterface     {
 	void step();
 
 	/**
-	 * Run until a halting state is reached or until maxSteps is executed.
-	 * If maxSteps <= 0, run until halting.
+	 * Run until a halting state is reached. The simulator should not impose
+	 * an artificial maximum number of steps; external grading harnesses may
+	 * enforce time limits.
 	 */
-	void run(long maxSteps);
+	void run();
 
 	/** True if the machine is in a halting state. */
 	boolean isHalted();

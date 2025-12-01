@@ -62,4 +62,14 @@ public class TMState implements TMStateInterface {
         return t == null ? 'N' : t.direction;
     }
 
+    /**
+     * Copy transitions from this state into dest. Used when cloning machine templates.
+     */
+    public void copyTo(TMState dest) {
+        for (java.util.Map.Entry<Integer, Transition> e : transitions.entrySet()) {
+            Transition t = e.getValue();
+            dest.transitions.put(e.getKey(), new Transition(t.nextStateId, t.writeSymbol, t.direction));
+        }
+    }
+
 }
