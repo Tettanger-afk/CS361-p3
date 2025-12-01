@@ -9,7 +9,6 @@ public class TMSimulator {
         java.io.File[] inputs;
         // defaults
         int defaultUnary = 1;
-        boolean timing = false; // preserved for backward compatibility but unused when timing always printed
 
         // simple arg parsing: global flags then file names
         java.util.List<String> fileArgs = new java.util.ArrayList<>();
@@ -18,10 +17,7 @@ public class TMSimulator {
                 try { defaultUnary = Integer.parseInt(a.substring("--unary=".length())); } catch (Exception ex) { System.err.println("Invalid --unary value: " + a); }
                 continue;
             }
-            if ("--timing".equals(a)) {
-                timing = true;
-                continue;
-            }
+            
             fileArgs.add(a);
         }
         if (fileArgs.size() > 0) {
