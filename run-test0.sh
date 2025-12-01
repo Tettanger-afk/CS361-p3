@@ -2,6 +2,11 @@
 set -euo pipefail
 trap 'find . -type f -name "*.class" -exec rm -f {} + || true' EXIT
 
+# Ensure previous outputs are removed before running
+if [ -f "./CleanUp.sh" ]; then
+	bash ./CleanUp.sh
+fi
+
 echo "Compiling..."
 # compile sources but skip TMTest.java (JUnit not required for simulator run)
 JAVA_PROJECT_FILES=$(ls *.java 2>/dev/null | grep -v TMTest.java || true)
