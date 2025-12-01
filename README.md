@@ -79,5 +79,5 @@ Alternatively import the project into your IDE and run `TMTest` from there.
 
 # Sources Used
 
-- Copilot was used for everything
+- Copilot was used for just about everything, exluding *.txt
 ----------
