@@ -13,7 +13,14 @@ length, sum of symbols, and elapsed time.
 
 ## Reflection
 
-TODO
+I decided to try vibe coding for a change. I have to admit I was pleasantly/unpleasantly suprised to see that not only was it very efficient, but also really fast. As long as you know what you are doing i.e. version control and incremental requests with copilot. 
+
+IIt basically filled out everything involing TM and modified my shellscripts completely. Though it took it quite a while to update the code to what I had wanted and introduce  methods, and when that was done I requested for cache memory for even faster computation from ~35 seconds to ~10.
+
+At first it was running with relatively quickly because I had planned ahead and thought Hash maps would be rather quick. When I asked it for something even faster it provided trasition tables which decreased the time to computation by a tenth. Test5 was running from ~10 seconds to ~1 second.
+
+Overall I think that you have to be very careful and use version control a lot. One of the requests I made was for even more efficiency was Ring Buffer, which is suppose to solve the issue with the tape where it has to expand(expand it both direction). When it finished modifying TM it said there was a corrupted file and had to restore to one of the commits I had made. Without that I would have lost all of my code. It can be really consuming to just keep making requests to Copilot, but you should definetly practice good version control so you don't end up burning all of that work. If you have something working, commit it to the main/branch and then start making more changes. 
+
 
 ## Quick start
 
