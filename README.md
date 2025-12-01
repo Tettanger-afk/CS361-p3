@@ -11,6 +11,10 @@ parses TM definition files (plain text) and executes the machine until it
 reaches a halting state. Outputs include the visited tape contents, output
 length, sum of symbols, and elapsed time.
 
+## Reflection
+
+TODO
+
 ## Quick start
 
 Compile and run the simulator (manual):
@@ -80,3 +84,9 @@ for transitions. For faster execution consider:
 
 If you want, I can implement the packed transition table and incremental
 metadata (sum/min/max) as a low-risk, high-impact speedup.
+
+
+# Sources Used
+
+- Copilot was used for everything
+----------
